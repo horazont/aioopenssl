@@ -6,6 +6,17 @@ This package provides a socket-based :class:`asyncio.Transport` which uses
 :mod:`OpenSSL` to create a TLS connection. Optionally, the TLS handshake can be
 deferred and performed later using :meth:`STARTTLSTransport.starttls`.
 
+.. note::
+
+   Use this module at your own risk. It has currently 0 (in words: zero) test
+   coverage; it has been exported from aioxmpp on request, where it undergoes
+   implicit testing. If you find bugs, please report them. If possible, add
+   regression tests while you’re at it.
+
+   If you find security-critical bugs, please follow the procedure announced in
+   the `aioxmpp readme <https://github.com/horazont/aioxmpp>`_.`
+
+
 The following function can be used to create a connection using the
 :class:`STARTTLSTransport`, which itself is documented below:
 

@@ -21,7 +21,12 @@ The transport has two main advantages compared to the original:
   This allows to ask users for certificate trust without the application layer
   protocol interfering or starting to communicate with the unverified peer.
 
-**Note:** Use this module at your own risk. It has currently 0 (in words: zero)
-test coverage; it has been exported from aioxmpp on request, where it undergoes
-implicit testing. If you find bugs, please report them. If possible, add
-regression tests while you’re at it.
+.. note::
+
+   Use this module at your own risk. It has currently 0 (in words: zero) test
+   coverage; it has been exported from aioxmpp on request, where it undergoes
+   implicit testing. If you find bugs, please report them. If possible, add
+   regression tests while you’re at it.
+
+   If you find security-critical bugs, please follow the procedure announced in
+   the `aioxmpp readme <https://github.com/horazont/aioxmpp>`_.`
