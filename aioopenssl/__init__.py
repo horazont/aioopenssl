@@ -26,9 +26,15 @@ from enum import Enum
 
 import OpenSSL.SSL
 
-from . import errors
-
 logger = logging.getLogger(__name__)
+
+
+version_info = (0, 1, 0, "a0")
+
+__version__ = ".".join(map(str, version_info[:3])) + ("-"+version_info[3] if
+                                                      version_info[3] else "")
+
+version = __version__
 
 
 class _State(Enum):
@@ -720,7 +726,12 @@ def create_starttls_connection(
             if all(str(exc) == model for exc in exceptions):
                 raise exceptions[0]
 
-            exc = errors.MultiOSError(
+            try:
+                from aioxmpp.errors import MultiOSError
+            except ImportError:
+                MultiOSError = OSError
+
+            exc = MultiOSError(
                 "could not connect to [{}]:{}".format(host, port),
                 exceptions)
             raise exc
