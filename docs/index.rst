@@ -1,4 +1,4 @@
-.. automodule:: aioopenssl
+.. automodule:: aioopenssl.impl
 
 Indices and tables
 ##################

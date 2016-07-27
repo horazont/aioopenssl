@@ -8,11 +8,11 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, "README.rst"), encoding="utf-8") as f:
     long_description = f.read()
 
-import aioopenssl
+from aioopenssl import __version__
 
 setup(
     name="aioopenssl",
-    version=aioopenssl.__version__,
+    version=__version__,
     description="TLS-capable transport using OpenSSL for asyncio",
     long_description=long_description,
     url="https://github.com/horazont/aioopenssl",
