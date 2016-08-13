@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os.path
+import runpy
 
 from setuptools import setup
 
@@ -8,11 +9,11 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, "README.rst"), encoding="utf-8") as f:
     long_description = f.read()
 
-import aioopenssl
+version_mod = runpy.run_path("aioopenssl/version.py")
 
 setup(
     name="aioopenssl",
-    version=aioopenssl.__version__,
+    version=version_mod["__version__"],
     description="TLS-capable transport using OpenSSL for asyncio",
     long_description=long_description,
     url="https://github.com/horazont/aioopenssl",

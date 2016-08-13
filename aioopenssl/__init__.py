@@ -35,17 +35,11 @@ import socket
 
 from enum import Enum
 
+from .version import __version__, version_info, version
+
 import OpenSSL.SSL
 
 logger = logging.getLogger(__name__)
-
-
-version_info = (0, 2, 0, "a0")
-
-__version__ = ".".join(map(str, version_info[:3])) + ("-"+version_info[3] if
-                                                      version_info[3] else "")
-
-version = __version__
 
 
 class _State(Enum):
