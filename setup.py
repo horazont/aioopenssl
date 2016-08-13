@@ -31,5 +31,8 @@ setup(
         "Topic :: Communications :: Chat",
     ],
     keywords="openssl asyncio library transport starttls",
+    install_requires=[
+        "PyOpenSSL",
+    ],
     packages=["aioopenssl"],
 )
