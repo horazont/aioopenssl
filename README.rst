@@ -30,3 +30,9 @@ The transport has two main advantages compared to the original:
 
    If you find security-critical bugs, please follow the procedure announced in
    the `aioxmpp readme <https://github.com/horazont/aioxmpp>`_.`
+
+Documentation
+-------------
+
+Official documentation can be built with sphinx and is available online
+`on our servers <https://docs.zombofant.net/aioopenssl/devel/>`_.
