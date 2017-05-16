@@ -35,4 +35,4 @@ Documentation
 -------------
 
 Official documentation can be built with sphinx and is available online
-`on our servers <https://docs.zombofant.net/aioopenssl/devel/>`_.
+`on our servers <https://docs.zombofant.net/aioopenssl/0.3/>`_.
