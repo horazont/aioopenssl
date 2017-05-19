@@ -1,6 +1,12 @@
 OpenSSL Transport for asyncio
 #############################
 
+.. image:: https://travis-ci.org/horazont/aioopenssl.svg?branch=devel
+  :target: https://travis-ci.org/horazont/aioopenssl
+
+.. image:: https://coveralls.io/repos/github/horazont/aioopenssl/badge.svg?branch=devel
+  :target: https://coveralls.io/github/horazont/aioopenssl?branch=devel
+
 ``aioopenssl`` provides a `asyncio
 <https://docs.python.org/3/library/asyncio.html>`_ Transport which uses
 `PyOpenSSL <https://pyopenssl.readthedocs.org/>`_ instead of the built-in ssl
