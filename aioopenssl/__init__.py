@@ -36,6 +36,7 @@ import socket
 from enum import Enum
 
 from .version import __version__, version_info, version
+from .utils import SendWrap
 
 import OpenSSL.SSL
 
@@ -156,6 +157,7 @@ class STARTTLSTransport(asyncio.Transport):
             "trace.fd={}".format(self._raw_fd)
         )
         self._sock = rawsock
+        self._send_wrap = SendWrap(self._sock)
         self._protocol = protocol
         self._loop = loop
         self._extra = {
@@ -304,6 +306,7 @@ class STARTTLSTransport(asyncio.Transport):
         except KeyError:
             pass
         self._sock = self._tls_conn
+        self._send_wrap = SendWrap(self._sock)
         self._extra.update(
             ssl_object=self._tls_conn
         )
@@ -475,7 +478,7 @@ class STARTTLSTransport(asyncio.Transport):
 
         if self._buffer:
             try:
-                nsent = self._sock.send(bytes(self._buffer))
+                nsent = self._send_wrap.send(self._buffer)
             except (BlockingIOError, InterruptedError,
                     OpenSSL.SSL.WantWriteError):
                 nsent = 0
