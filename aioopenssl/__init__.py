@@ -670,6 +670,10 @@ class STARTTLSTransport(asyncio.Transport):
         """
         return True
 
+    def is_closing(self):
+        return (self._state == _State.TLS_SHUTTING_DOWN or
+                self._state == _State.CLOSED)
+
 
 @asyncio.coroutine
 def create_starttls_connection(
