@@ -1,0 +1,17 @@
+language: python
+cache:
+  pip: true
+
+python:
+- "3.4"
+- "3.5"
+- "3.6"
+- "3.7-dev"
+
+install:
+- pip install nose coveralls
+- pip install .
+script:
+- nosetests --with-cover --cover-package aioopenssl tests
+after_success:
+- if [[ "$TRAVIS_PYTHON_VERSION" == '3.6' ]]; then coveralls; fi
