@@ -23,7 +23,7 @@ class TestSendWrap(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             bytes_ = stack.enter_context(
-                unittest.mock.patch("aioopenssl.utils.bytes")
+                unittest.mock.patch("aioopenssl.utils.bytes", create=True)
             )
 
             result = self.ww.send(data)
@@ -66,7 +66,7 @@ class TestSendWrap(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             bytes_ = stack.enter_context(
-                unittest.mock.patch("aioopenssl.utils.bytes")
+                unittest.mock.patch("aioopenssl.utils.bytes", create=True)
             )
 
             self.sock.send.side_effect = OpenSSL.SSL.WantWriteError
@@ -96,7 +96,7 @@ class TestSendWrap(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             bytes_ = stack.enter_context(
-                unittest.mock.patch("aioopenssl.utils.bytes")
+                unittest.mock.patch("aioopenssl.utils.bytes", create=True)
             )
 
             self.sock.send.side_effect = OpenSSL.SSL.WantWriteError
@@ -143,7 +143,7 @@ class TestSendWrap(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             bytes_ = stack.enter_context(
-                unittest.mock.patch("aioopenssl.utils.bytes")
+                unittest.mock.patch("aioopenssl.utils.bytes", create=True)
             )
 
             self.sock.send.side_effect = OpenSSL.SSL.WantWriteError
@@ -174,7 +174,7 @@ class TestSendWrap(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             bytes_ = stack.enter_context(
-                unittest.mock.patch("aioopenssl.utils.bytes")
+                unittest.mock.patch("aioopenssl.utils.bytes", create=True)
             )
 
             self.sock.send.side_effect = OpenSSL.SSL.WantReadError
@@ -204,7 +204,7 @@ class TestSendWrap(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             bytes_ = stack.enter_context(
-                unittest.mock.patch("aioopenssl.utils.bytes")
+                unittest.mock.patch("aioopenssl.utils.bytes", create=True)
             )
 
             self.sock.send.side_effect = OpenSSL.SSL.WantReadError
@@ -251,7 +251,7 @@ class TestSendWrap(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             bytes_ = stack.enter_context(
-                unittest.mock.patch("aioopenssl.utils.bytes")
+                unittest.mock.patch("aioopenssl.utils.bytes", create=True)
             )
 
             self.sock.send.side_effect = OpenSSL.SSL.WantReadError
@@ -283,7 +283,7 @@ class TestSendWrap(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             bytes_ = stack.enter_context(
-                unittest.mock.patch("aioopenssl.utils.bytes")
+                unittest.mock.patch("aioopenssl.utils.bytes", create=True)
             )
 
             self.sock.send.side_effect = OpenSSL.SSL.WantReadError

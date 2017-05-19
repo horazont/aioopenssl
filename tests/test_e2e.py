@@ -69,7 +69,7 @@ class TestSSLConnection(unittest.TestCase):
             asyncio.get_event_loop(),
             self._stream_reader_proto,
             *args,
-            **kwargs,
+            **kwargs
         )
         reader = reader_proto._stream_reader
         writer = asyncio.StreamWriter(transport, reader_proto, reader,
