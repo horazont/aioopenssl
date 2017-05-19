@@ -23,8 +23,8 @@ The transport has two main advantages compared to the original:
 
 .. note::
 
-   Use this module at your own risk. It has currently 0 (in words: zero) test
-   coverage; it has been exported from aioxmpp on request, where it undergoes
+   Use this module at your own risk. It has lower test coverage than I’d like
+   it to have; it has been exported from aioxmpp on request, where it undergoes
    implicit testing. If you find bugs, please report them. If possible, add
    regression tests while you’re at it.
 
