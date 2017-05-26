@@ -110,7 +110,7 @@ class STARTTLSTransport(asyncio.Transport):
     certificate validators implementing e.g. DANE.
 
     `server_hostname` must be either a :class:`str` or :data:`None`. It may be
-    used by certificate validators anrd must be the host name for which the
+    used by certificate validators and must be the host name for which the
     peer must have a valid certificate (if host name based certificate
     validation is performed). `server_hostname` is also passed via the TLS
     Server Name Indication (SNI) extension if it is given.
