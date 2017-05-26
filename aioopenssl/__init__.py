@@ -118,6 +118,9 @@ class STARTTLSTransport(asyncio.Transport):
     If host names are to be converted to :class:`bytes` by the transport, they
     are encoded using the ``utf-8` codec.
 
+    If `server_mode` is true, TLS will be negotiated as a server. Defaults to
+    false (client mode).
+
     If `waiter` is not :data:`None`, it must be a
     :class:`asyncio.Future`. After the stream has been established, the futures
     result is set to a value of :data:`None`. If any errors occur, the
@@ -145,7 +148,8 @@ class STARTTLSTransport(asyncio.Transport):
                  use_starttls=False,
                  post_handshake_callback=None,
                  peer_hostname=None,
-                 server_hostname=None):
+                 server_hostname=None,
+                 server_mode=False):
         if not use_starttls and not ssl_context_factory:
             raise ValueError("Cannot have STARTTLS disabled (i.e. immediate "
                              "TLS connection) and without SSL context.")
@@ -173,7 +177,8 @@ class STARTTLSTransport(asyncio.Transport):
             ssl_object=None,
             peername=self._rawsock.getpeername(),
             peer_hostname=peer_hostname,
-            server_hostname=server_hostname
+            server_hostname=server_hostname,
+            server_mode=server_mode
         )
 
         # this is a list set of tasks which will also be cancelled if the
@@ -298,7 +303,11 @@ class STARTTLSTransport(asyncio.Transport):
         self._tls_conn = OpenSSL.SSL.Connection(
             self._ssl_context,
             self._sock)
-        self._tls_conn.set_connect_state()
+        # Specify whether this is client or server
+        if self._extra["server_mode"]:
+            self._tls_conn.set_accept_state()
+        else:
+            self._tls_conn.set_connect_state()
         self._tls_conn.set_app_data(self)
         try:
             self._tls_conn.set_tlsext_host_name(
@@ -631,6 +640,10 @@ class STARTTLSTransport(asyncio.Transport):
 
         if post_handshake_callback is not None:
             self._tls_post_handshake_callback = post_handshake_callback
+
+        # Drain before initializing TLS
+        while self._buffer:
+            yield from asyncio.sleep(0)
 
         self._waiter = asyncio.Future()
         self._waiter.add_done_callback(self._waiter_done)
