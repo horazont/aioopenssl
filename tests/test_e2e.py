@@ -222,3 +222,23 @@ class TestSSLConnection(unittest.TestCase):
             s_read,
             data2,
         )
+
+    @blocking
+    @asyncio.coroutine
+    def test_abort(self):
+        c_transport, c_reader, c_writer = yield from self._connect(
+            host="127.0.0.1",
+            port=PORT,
+            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            ),
+            server_hostname="localhost",
+            use_starttls=False,
+        )
+
+        s_reader, s_writer = yield from self.inbound_queue.get()
+
+        c_transport.abort()
+
+        with self.assertRaises(ConnectionError):
+            yield from asyncio.gather(c_writer.drain())
