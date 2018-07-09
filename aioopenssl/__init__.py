@@ -541,7 +541,7 @@ class STARTTLSTransport(asyncio.Transport):
             self._invalid_state("abort() called")
             return
 
-        self._force_close()
+        self._force_close(None)
 
     def can_write_eof(self):
         """
