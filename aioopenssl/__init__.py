@@ -695,6 +695,7 @@ def create_starttls_connection(
         sock=None,
         ssl_context_factory=None,
         use_starttls=False,
+        local_addr=None,
         **kwargs):
     """
     This is roughly a copy of the asyncio implementation of
@@ -720,6 +721,10 @@ def create_starttls_connection(
     :data:`False`, this means that the full TLS handshake has to be finished
     for this coroutine to return. Otherwise, no TLS handshake takes place. It
     must be invoked using the :meth:`STARTTLSTransport.starttls` coroutine.
+
+    `local_addr` may be an address to bind this side of the socket to. If
+    omitted or :data:`None`, the local address is assigned by the operating
+    system.
     """
 
     if host is not None and port is not None:
@@ -734,6 +739,8 @@ def create_starttls_connection(
             try:
                 sock = socket.socket(family=family, type=type, proto=proto)
                 sock.setblocking(False)
+                if local_addr is not None:
+                    sock.bind(local_addr)
                 yield from loop.sock_connect(sock, address)
             except OSError as exc:
                 if sock is not None:

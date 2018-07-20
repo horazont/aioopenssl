@@ -27,6 +27,8 @@ def blocking(meth):
 
 
 class TestSSLConnection(unittest.TestCase):
+    TRY_PORTS = list(range(10000, 10010))
+
     @blocking
     @asyncio.coroutine
     def setUp(self):
@@ -242,3 +244,35 @@ class TestSSLConnection(unittest.TestCase):
 
         with self.assertRaises(ConnectionError):
             yield from asyncio.gather(c_writer.drain())
+
+    @blocking
+    @asyncio.coroutine
+    def test_local_addr(self):
+        last_exc = None
+        used_port = None
+
+        for port in self.TRY_PORTS:
+            try:
+                c_transport, c_reader, c_writer = yield from self._connect(
+                    host="127.0.0.1",
+                    port=PORT,
+                    ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
+                        OpenSSL.SSL.SSLv23_METHOD
+                    ),
+                    server_hostname="localhost",
+                    use_starttls=False,
+                    local_addr=("127.0.0.1", port)
+                )
+            except OSError as exc:
+                last_exc = exc
+                continue
+            used_port = port
+            break
+        else:
+            raise last_exc
+
+        s_reader, s_writer = yield from self.inbound_queue.get()
+        sock = s_writer.transport.get_extra_info("socket")
+        peer_addr = sock.getpeername()
+
+        self.assertEqual(peer_addr, ("127.0.0.1", used_port))
