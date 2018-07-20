@@ -422,6 +422,39 @@ class TestSSLConnection(unittest.TestCase):
 
     @blocking
     @asyncio.coroutine
+    def test_no_data_is_received_if_handshake_crashes(self):
+        class FooException(Exception):
+            pass
+
+        @asyncio.coroutine
+        def post_handshake_callback(transport):
+            yield from asyncio.sleep(0.5)
+            raise FooException()
+
+        c_transport, c_reader, c_writer = yield from self._connect(
+            host="127.0.0.1",
+            port=PORT,
+            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            ),
+            server_hostname="localhost",
+            use_starttls=True,
+            post_handshake_callback=post_handshake_callback,
+        )
+
+        starttls_task = asyncio.ensure_future(c_transport.starttls())
+        s_reader, s_writer = yield from self.inbound_queue.get()
+        self.assertFalse(starttls_task.done())
+        s_writer.write(b"fnord")
+
+        with self.assertRaises(FooException):
+            yield from c_reader.readexactly(5)
+
+        with self.assertRaises(FooException):
+            yield from starttls_task
+
+    @blocking
+    @asyncio.coroutine
     def test_data_is_sent_after_handshake(self):
         @asyncio.coroutine
         def post_handshake_callback(transport):
@@ -453,6 +486,41 @@ class TestSSLConnection(unittest.TestCase):
         )
 
         self.assertEqual(s_recv, b"foobar")
+
+    @blocking
+    @asyncio.coroutine
+    def test_no_data_is_received_after_handshake(self):
+        @asyncio.coroutine
+        def post_handshake_callback(transport):
+            yield from asyncio.sleep(0.5)
+
+        c_transport, c_reader, c_writer = yield from self._connect(
+            host="127.0.0.1",
+            port=PORT,
+            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            ),
+            server_hostname="localhost",
+            use_starttls=True,
+            post_handshake_callback=post_handshake_callback,
+        )
+
+        starttls_task = asyncio.ensure_future(c_transport.starttls())
+        s_reader, s_writer = yield from self.inbound_queue.get()
+        self.assertFalse(starttls_task.done())
+        s_writer.write(b"fnord")
+
+        with self.assertRaises(asyncio.TimeoutError):
+            yield from asyncio.wait_for(
+                c_reader.readexactly(5),
+                timeout=0.1,
+            )
+
+        yield from starttls_task
+
+        c_recv = yield from c_reader.readexactly(5)
+
+        self.assertEqual(c_recv, b"fnord")
 
     @blocking
     @asyncio.coroutine

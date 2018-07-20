@@ -655,6 +655,12 @@ class STARTTLSTransport(asyncio.Transport):
         If `ssl_context` is set, it overrides the `ssl_context` passed to the
         constructor. If `post_handshake_callback` is set, it overrides the
         `post_handshake_callback` passed to the constructor.
+
+        .. versionchanged:: 0.4
+
+            This method is now a barrier with respect to reads and writes:
+            before the handshake is completed (including the post handshake
+            callback, if any), no data is received or sent.
         """
         if self._state != _State.RAW_OPEN or self._closing:
             raise self._invalid_state("starttls() called")
