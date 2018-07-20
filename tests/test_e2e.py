@@ -447,13 +447,47 @@ class TestSSLConnection(unittest.TestCase):
 
         s_reader, s_writer = yield from self.inbound_queue.get()
 
-
         s_recv = yield from asyncio.wait_for(
             s_reader.readexactly(6),
             timeout=0.1,
         )
 
         self.assertEqual(s_recv, b"foobar")
+
+    @blocking
+    @asyncio.coroutine
+    def test_close_during_handshake(self):
+        cancelled = None
+
+        @asyncio.coroutine
+        def post_handshake_callback(transport):
+            nonlocal cancelled
+            try:
+                yield from asyncio.sleep(0.5)
+                cancelled = False
+            except asyncio.CancelledError:
+                cancelled = True
+
+        c_transport, c_reader, c_writer = yield from self._connect(
+            host="127.0.0.1",
+            port=PORT,
+            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            ),
+            server_hostname="localhost",
+            use_starttls=True,
+            post_handshake_callback=post_handshake_callback,
+        )
+
+        starttls_task = asyncio.ensure_future(c_transport.starttls())
+        # ensure that handshake is in progress...
+        yield from asyncio.sleep(0.2)
+        c_transport.close()
+
+        with self.assertRaises(ConnectionError):
+            yield from starttls_task
+
+        self.assertTrue(cancelled)
 
 
 class ServerThread(threading.Thread):

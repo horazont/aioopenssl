@@ -207,11 +207,11 @@ class STARTTLSTransport(asyncio.Transport):
 
     def _waiter_done(self, fut):
         self._trace_logger.debug("_waiter future done (%r)", fut)
-        if fut.cancelled():
-            for chained in self._chained_pending:
-                self._trace_logger.debug("cancelling chained %r", chained)
-                chained.cancel()
-            self._chained_pending.clear()
+
+        for chained in self._chained_pending:
+            self._trace_logger.debug("cancelling chained %r", chained)
+            chained.cancel()
+        self._chained_pending.clear()
 
     def _invalid_transition(self, via=None, to=None):
         via_text = (" via {}".format(via)) if via is not None else ""
@@ -257,6 +257,8 @@ class STARTTLSTransport(asyncio.Transport):
         if self._buffer:
             self._buffer.clear()
 
+        if self._waiter is not None and not self._waiter.done():
+            self._waiter.set_exception(ConnectionError("_force_close() called"))
         self._loop.remove_reader(self._raw_fd)
         self._loop.remove_writer(self._raw_fd)
         self._loop.call_soon(self._call_connection_lost_and_clean_up, exc)
@@ -371,6 +373,9 @@ class STARTTLSTransport(asyncio.Transport):
         self._chained_pending.discard(task)
         try:
             task.result()
+        except asyncio.CancelledError:
+            # canceled due to closure or something similar
+            pass
         except BaseException as err:
             self._tls_post_handshake(err)
         else:
@@ -379,9 +384,9 @@ class STARTTLSTransport(asyncio.Transport):
     def _tls_post_handshake(self, exc):
         self._trace_logger.debug("_tls_post_handshake called")
         if exc is not None:
-            self._fatal_error(exc, "Fatal error on post-handshake callback")
             if self._waiter is not None and not self._waiter.done():
                 self._waiter.set_exception(exc)
+            self._fatal_error(exc, "Fatal error on post-handshake callback")
             return
 
         self._tls_read_wants_write = False
