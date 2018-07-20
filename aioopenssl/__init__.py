@@ -460,6 +460,18 @@ class STARTTLSTransport(asyncio.Transport):
             self._trace_logger.debug("_read_ready: swap reader for writer")
             self._loop.remove_reader(self._raw_fd)
             self._loop.add_writer(self._raw_fd, self._write_ready)
+        except OpenSSL.SSL.SysCallError as exc:
+            if self._state in (_State.TLS_SHUT_DOWN,
+                               _State.TLS_SHUTTING_DOWN,
+                               _State.CLOSED):
+                self._trace_logger.debug(
+                    "_read_ready: ignoring syscall exception during shutdown: "
+                    "%s",
+                    exc,
+                )
+            else:
+                self._fatal_error(exc,
+                                  "Fatal read error on STARTTLS transport")
         except Exception as err:
             self._fatal_error(err, "Fatal read error on STARTTLS transport")
             return
@@ -497,6 +509,19 @@ class STARTTLSTransport(asyncio.Transport):
                     "_write_ready: swap writer for reader")
                 self._loop.remove_writer(self._raw_fd)
                 self._loop.add_reader(self._raw_fd, self._read_ready)
+            except OpenSSL.SSL.SysCallError as exc:
+                if self._state in (_State.TLS_SHUT_DOWN,
+                                   _State.TLS_SHUTTING_DOWN,
+                                   _State.CLOSED):
+                    self._trace_logger.debug(
+                        "_write_ready: ignoring syscall exception during "
+                        "shutdown: %s",
+                        exc,
+                    )
+                else:
+                    self._fatal_error(exc,
+                                      "Fatal write error on STARTTLS "
+                                      "transport")
             except Exception as err:
                 self._fatal_error(err,
                                   "Fatal write error on STARTTLS "
