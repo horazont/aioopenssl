@@ -109,6 +109,7 @@ html_theme_options = {
     "github_button": "true",
     "github_repo": "aioopenssl",
     "github_user": "horazont",
+    "font_size": "12pt",
 }
 html_sidebars = {
     '**': [
