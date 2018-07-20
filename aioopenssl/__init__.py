@@ -14,7 +14,7 @@ deferred and performed later using :meth:`STARTTLSTransport.starttls`.
    regression tests while you’re at it.
 
    If you find security-critical bugs, please follow the procedure announced in
-   the `aioxmpp readme <https://github.com/horazont/aioxmpp>`_.`
+   the `aioxmpp readme <https://github.com/horazont/aioxmpp>`_.
 
 
 The following function can be used to create a connection using the
