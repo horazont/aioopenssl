@@ -67,12 +67,13 @@ class TestSSLConnection(unittest.TestCase):
         return proto
 
     def _connect(self, *args, **kwargs):
-        transport, reader_proto = yield from aioopenssl.create_starttls_connection(
-            asyncio.get_event_loop(),
-            self._stream_reader_proto,
-            *args,
-            **kwargs
-        )
+        transport, reader_proto = \
+            yield from aioopenssl.create_starttls_connection(
+                asyncio.get_event_loop(),
+                self._stream_reader_proto,
+                *args,
+                **kwargs
+            )
         reader = reader_proto._stream_reader
         writer = asyncio.StreamWriter(transport, reader_proto, reader,
                                       self.loop)
