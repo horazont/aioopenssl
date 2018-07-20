@@ -495,7 +495,8 @@ class STARTTLSTransport(asyncio.Transport):
                                          " data")
                 self._loop.add_reader(self._raw_fd, self._read_ready)
 
-        if self._buffer:
+        # do not send data during handshake!
+        if self._buffer and self._state != _State.TLS_HANDSHAKING:
             try:
                 nsent = self._send_wrap.send(self._buffer)
             except (BlockingIOError, InterruptedError,
