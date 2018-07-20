@@ -356,6 +356,31 @@ class TestSSLConnection(unittest.TestCase):
 
         ssl_sock.renegotiate()
 
+    @blocking
+    @asyncio.coroutine
+    def test_post_handshake_exception_is_propagated(self):
+        class FooException(Exception):
+            pass
+
+        @asyncio.coroutine
+        def post_handshake_callback(transport):
+            raise FooException()
+
+        c_transport, c_reader, c_writer = yield from self._connect(
+            host="127.0.0.1",
+            port=PORT,
+            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            ),
+            server_hostname="localhost",
+            use_starttls=True,
+            post_handshake_callback=post_handshake_callback,
+        )
+
+        with self.assertRaises(FooException):
+            yield from c_transport.starttls()
+
+
 
 class ServerThread(threading.Thread):
     def __init__(self, ctx, port, loop, queue):
