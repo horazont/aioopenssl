@@ -454,7 +454,7 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
         return self.loop.run_in_executor(
             None,
             sock.recv,
-            *argv,
+            *argv
         )
 
     @asyncio.coroutine
@@ -462,7 +462,7 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
         return self.loop.run_in_executor(
             None,
             sock.send,
-            *argv,
+            *argv
         )
 
     def _stream_reader_proto(self):
