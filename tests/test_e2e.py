@@ -503,7 +503,7 @@ class ServerThread(threading.Thread):
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._socket.bind(("127.0.0.1", port))
         self._socket.settimeout(0.5)
-        self._socket.listen()
+        self._socket.listen(0)
         self._loop = loop
         self._queue = queue
         self.stopped = False
