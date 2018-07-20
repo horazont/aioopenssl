@@ -123,7 +123,7 @@ class STARTTLSTransport(asyncio.Transport):
     Server Name Indication (SNI) extension if it is given.
 
     If host names are to be converted to :class:`bytes` by the transport, they
-    are encoded using the ``utf-8` codec.
+    are encoded using the ``utf-8`` codec.
 
     If `waiter` is not :data:`None`, it must be a
     :class:`asyncio.Future`. After the stream has been established, the futures
@@ -735,15 +735,38 @@ def create_starttls_connection(
         local_addr=None,
         **kwargs):
     """
+    Create a connection which can later be upgraded to use TLS.
+
+    .. versionchanged:: 0.4
+
+        The `local_addr` argument was added.
+
+    :param loop: The event loop to use.
+    :type loop: :class:`asyncio.BaseEventLoop`
+    :param protocol_factory: Factory for the protocol for the connection
+    :param host: The host name or address to connect to
+    :type host: :class:`str` or :data:`None`
+    :param port: The port to connect to
+    :type port: :class:`int` or :data:`None`
+    :param sock: A socket to wrap (conflicts with `host` and `port`)
+    :type sock: :class:`socket.socket`
+    :param ssl_context_factory: Function which returns a
+        :class:`OpenSSL.SSL.Context` to use for TLS operations
+    :param use_starttls: Flag to control whether TLS is negotiated right away
+        or deferredly.
+    :type use_starttls: :class:`bool`
+    :param local_addr: Address to bind to
+
     This is roughly a copy of the asyncio implementation of
     :meth:`asyncio.BaseEventLoop.create_connection`. It returns a pair
     ``(transport, protocol)``, where `transport` is a newly created
-    :class:`STARTTLSTransport` instance. The keyword arguments are forwarded to
-    the constructor of :class:`STARTTLSTransport`.
+    :class:`STARTTLSTransport` instance. Further keyword arguments are
+    forwarded to the constructor of :class:`STARTTLSTransport`.
 
     `loop` must be a :class:`asyncio.BaseEventLoop`, with support for
     :meth:`asyncio.BaseEventLoop.add_reader` and the corresponding writer and
-    removal functions for sockets.
+    removal functions for sockets. This is typically a selector type event
+    loop.
 
     `protocol_factory` must be a callable which (without any arguments) returns
     a :class:`asyncio.Protocol` which will be connected to the STARTTLS
@@ -754,14 +777,21 @@ def create_starttls_connection(
     :data:`None`. In that case, `sock` is used instead of a newly created
     socket. `sock` is put into non-blocking mode and must be a stream socket.
 
-    This coroutine returns when the stream is established. If `use_starttls` is
-    :data:`False`, this means that the full TLS handshake has to be finished
-    for this coroutine to return. Otherwise, no TLS handshake takes place. It
-    must be invoked using the :meth:`STARTTLSTransport.starttls` coroutine.
+    If `use_starttls` is :data:`True`, no TLS handshake will be performed
+    initially. Instead, the connection is established without any
+    transport-layer security. It is expected that the
+    :meth:`STARTTLSTransport.starttls` method is used when the application
+    protocol requires TLS. If `use_starttls` is :data:`False`, the TLS
+    handshake is initiated right away.
 
     `local_addr` may be an address to bind this side of the socket to. If
     omitted or :data:`None`, the local address is assigned by the operating
     system.
+
+    This coroutine returns when the stream is established. If `use_starttls` is
+    :data:`False`, this means that the full TLS handshake has to be finished
+    for this coroutine to return. Otherwise, no TLS handshake takes place. It
+    must be invoked using the :meth:`STARTTLSTransport.starttls` coroutine.
     """
 
     if host is not None and port is not None:
