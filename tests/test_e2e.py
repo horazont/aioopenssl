@@ -277,3 +277,40 @@ class TestSSLConnection(unittest.TestCase):
         peer_addr = sock.getpeername()
 
         self.assertEqual(peer_addr, ("127.0.0.1", used_port))
+
+    @blocking
+    @asyncio.coroutine
+    def test_starttls(self):
+        c_transport, c_reader, c_writer = yield from self._connect(
+            host="127.0.0.1",
+            port=PORT,
+            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            ),
+            server_hostname="localhost",
+            use_starttls=True,
+        )
+
+        yield from c_transport.starttls()
+
+        s_reader, s_writer = yield from self.inbound_queue.get()
+
+        c_writer.write(b"foobar")
+        s_writer.write(b"fnord")
+
+        yield from asyncio.gather(s_writer.drain(), c_writer.drain())
+
+        c_read, s_read = yield from asyncio.gather(
+            c_reader.readexactly(5),
+            s_reader.readexactly(6),
+        )
+
+        self.assertEqual(
+            s_read,
+            b"foobar"
+        )
+
+        self.assertEqual(
+            c_read,
+            b"fnord"
+        )
