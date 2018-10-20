@@ -321,12 +321,17 @@ class TestSSLConnection(unittest.TestCase):
     @blocking
     @asyncio.coroutine
     def test_renegotiation(self):
+        def ctx_factory(_):
+            ctx = OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            )
+            ctx.set_options(getattr(ssl, "OP_NO_TLSv1_3", 0))
+            return ctx
+
         c_transport, c_reader, c_writer = yield from self._connect(
             host="127.0.0.1",
             port=PORT,
-            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
-                OpenSSL.SSL.SSLv23_METHOD
-            ),
+            ssl_context_factory=ctx_factory,
             server_hostname="localhost",
             use_starttls=False,
         )
@@ -412,13 +417,19 @@ class TestSSLConnection(unittest.TestCase):
 
         s_reader, s_writer = yield from self.inbound_queue.get()
 
-        with self.assertRaises(asyncio.streams.IncompleteReadError) as ctx:
+        with self.assertRaises(Exception) as ctx:
             yield from asyncio.wait_for(
                 s_reader.readexactly(6),
                 timeout=0.1,
             )
 
-        self.assertFalse(ctx.exception.partial)
+        exc = ctx.exception
+
+        self.assertTrue(type(exc) is asyncio.streams.IncompleteReadError or
+                        type(exc) is ConnectionResetError)
+
+        if isinstance(exc, asyncio.streams.IncompleteReadError):
+            self.assertFalse(exc.partial)
 
     @blocking
     @asyncio.coroutine
@@ -726,12 +737,17 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
     @blocking
     @asyncio.coroutine
     def test_renegotiate(self):
+        def ctx_factory(_):
+            ctx = OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            )
+            ctx.set_options(getattr(ssl, "OP_NO_TLSv1_3", 0))
+            return ctx
+
         c_transport, c_reader, c_writer = yield from self._connect(
             host="127.0.0.1",
             port=PORT+1,
-            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
-                OpenSSL.SSL.SSLv23_METHOD
-            ),
+            ssl_context_factory=ctx_factory,
             server_hostname="localhost",
             use_starttls=False,
         )
