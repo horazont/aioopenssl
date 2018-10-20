@@ -417,13 +417,19 @@ class TestSSLConnection(unittest.TestCase):
 
         s_reader, s_writer = yield from self.inbound_queue.get()
 
-        with self.assertRaises(asyncio.streams.IncompleteReadError) as ctx:
+        with self.assertRaises(Exception) as ctx:
             yield from asyncio.wait_for(
                 s_reader.readexactly(6),
                 timeout=0.1,
             )
 
-        self.assertFalse(ctx.exception.partial)
+        exc = ctx.exception
+
+        self.assertTrue(type(exc) is asyncio.streams.IncompleteReadError or
+                        type(exc) is ConnectionResetError)
+
+        if isinstance(exc, asyncio.streams.IncompleteReadError):
+            self.assertFalse(exc.partial)
 
     @blocking
     @asyncio.coroutine
