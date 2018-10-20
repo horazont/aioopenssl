@@ -321,12 +321,17 @@ class TestSSLConnection(unittest.TestCase):
     @blocking
     @asyncio.coroutine
     def test_renegotiation(self):
+        def ctx_factory(_):
+            ctx = OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            )
+            ctx.set_options(getattr(ssl, "OP_NO_TLSv1_3", 0))
+            return ctx
+
         c_transport, c_reader, c_writer = yield from self._connect(
             host="127.0.0.1",
             port=PORT,
-            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
-                OpenSSL.SSL.SSLv23_METHOD
-            ),
+            ssl_context_factory=ctx_factory,
             server_hostname="localhost",
             use_starttls=False,
         )
@@ -726,12 +731,17 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
     @blocking
     @asyncio.coroutine
     def test_renegotiate(self):
+        def ctx_factory(_):
+            ctx = OpenSSL.SSL.Context(
+                OpenSSL.SSL.SSLv23_METHOD
+            )
+            ctx.set_options(getattr(ssl, "OP_NO_TLSv1_3", 0))
+            return ctx
+
         c_transport, c_reader, c_writer = yield from self._connect(
             host="127.0.0.1",
             port=PORT+1,
-            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
-                OpenSSL.SSL.SSLv23_METHOD
-            ),
+            ssl_context_factory=ctx_factory,
             server_hostname="localhost",
             use_starttls=False,
         )
