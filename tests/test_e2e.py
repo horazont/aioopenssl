@@ -36,11 +36,29 @@ class TestSSLConnection(unittest.TestCase):
     @asyncio.coroutine
     def setUp(self):
         self.loop = asyncio.get_event_loop()
+        self.server = None
         self.server_ctx = ssl.create_default_context(
             ssl.Purpose.CLIENT_AUTH
         )
 
         self.server_ctx.load_cert_chain(str(KEYFILE))
+        yield from self._replace_server()
+
+        self.inbound_queue = asyncio.Queue()
+
+    @asyncio.coroutine
+    def _shutdown_server(self):
+        self.server.close()
+        while not self.inbound_queue.empty():
+            reader, writer = yield from self.inbound_queue.get()
+            writer.close()
+        yield from self.server.wait_closed()
+        self.server = None
+
+    @asyncio.coroutine
+    def _replace_server(self):
+        if self.server is not None:
+            yield from self._shutdown_server()
 
         self.server = yield from asyncio.start_server(
             self._server_accept,
@@ -48,16 +66,11 @@ class TestSSLConnection(unittest.TestCase):
             port=PORT,
             ssl=self.server_ctx,
         )
-        self.inbound_queue = asyncio.Queue()
 
     @blocking
     @asyncio.coroutine
     def tearDown(self):
-        self.server.close()
-        while not self.inbound_queue.empty():
-            reader, writer = yield from self.inbound_queue.get()
-            writer.close()
-        yield from self.server.wait_closed()
+        yield from self._shutdown_server()
 
     def _server_accept(self, reader, writer):
         self.inbound_queue.put_nowait(
@@ -323,6 +336,17 @@ class TestSSLConnection(unittest.TestCase):
     @blocking
     @asyncio.coroutine
     def test_renegotiation(self):
+        self.server_ctx = ssl.create_default_context(
+            ssl.Purpose.CLIENT_AUTH
+        )
+        if hasattr(ssl, "OP_NO_TLSv1_3"):
+            # Need to forbid TLS v1.3, since TLSv1.3+ does not support
+            # renegotiation
+            self.server_ctx.options |= ssl.OP_NO_TLSv1_3
+
+        self.server_ctx.load_cert_chain(str(KEYFILE))
+        yield from self._replace_server()
+
         c_transport, c_reader, c_writer = yield from self._connect(
             host="127.0.0.1",
             port=PORT,
@@ -635,10 +659,19 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
     @asyncio.coroutine
     def setUp(self):
         self.loop = asyncio.get_event_loop()
+        self.thread = None
 
         ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
         ctx.use_certificate_chain_file(str(KEYFILE))
         ctx.use_privatekey_file(str(KEYFILE))
+
+        self._replace_thread(ctx)
+
+    def _replace_thread(self, ctx):
+        if self.thread is not None:
+            self.thread.stopped = True
+            self.thread.join()
+            self.thread = None
 
         self.inbound_queue = asyncio.Queue()
         self.thread = ServerThread(
@@ -740,6 +773,15 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
     @blocking
     @asyncio.coroutine
     def test_renegotiate(self):
+        ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
+        if hasattr(OpenSSL.SSL, "OP_NO_TLSv1_3"):
+            # Need to forbid TLS v1.3, since TLSv1.3+ does not support
+            # renegotiation
+            ctx.set_options(OpenSSL.SSL.OP_NO_TLSv1_3)
+        ctx.use_certificate_chain_file(str(KEYFILE))
+        ctx.use_privatekey_file(str(KEYFILE))
+        self._replace_thread(ctx)
+
         c_transport, c_reader, c_writer = yield from self._connect(
             host="127.0.0.1",
             port=PORT+1,
@@ -772,7 +814,17 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
             b"fnord"
         )
 
-        sock.renegotiate()
+        try:
+            sock.renegotiate()
+        except OpenSSL.SSL.Error as exc:
+            (argv,), = exc.args
+            if (argv[1] == "SSL_renegotiate" and
+                    argv[2] == "wrong ssl version"):
+                raise RuntimeError(
+                    "You are a PyOpenSSL version which uses TLSv1.3, but has"
+                    " no way to turn it off. Update PyOpenSSL."
+                )
+            raise
 
         c_writer.write(b"baz")
 
