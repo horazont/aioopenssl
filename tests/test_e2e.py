@@ -67,6 +67,7 @@ class TestSSLConnection(unittest.TestCase):
     def _stream_reader_proto(self):
         reader = asyncio.StreamReader(loop=self.loop)
         proto = asyncio.StreamReaderProtocol(reader)
+        proto.aioopenssl_test_reader = reader
         return proto
 
     def _connect(self, *args, **kwargs):
@@ -77,7 +78,8 @@ class TestSSLConnection(unittest.TestCase):
                 *args,
                 **kwargs
             )
-        reader = reader_proto._stream_reader
+        reader = reader_proto.aioopenssl_test_reader
+        del reader_proto.aioopenssl_test_reader
         writer = asyncio.StreamWriter(transport, reader_proto, reader,
                                       self.loop)
         return transport, reader, writer
@@ -412,13 +414,23 @@ class TestSSLConnection(unittest.TestCase):
 
         s_reader, s_writer = yield from self.inbound_queue.get()
 
-        with self.assertRaises(asyncio.streams.IncompleteReadError) as ctx:
+        with self.assertRaises(Exception) as ctx:
             yield from asyncio.wait_for(
                 s_reader.readexactly(6),
                 timeout=0.1,
             )
 
-        self.assertFalse(ctx.exception.partial)
+        exc = ctx.exception
+        # using type(None) as default, since that will always be false in the
+        # isinstance check below
+        incomplete_read_exc_type = getattr(
+            asyncio.streams, "IncompleteReadError",
+            getattr(asyncio, "IncompleteReadError", type(None))
+        )
+        if isinstance(exc, incomplete_read_exc_type):
+            self.assertFalse(exc.partial)
+        elif not isinstance(exc, ConnectionResetError):
+            raise exc
 
     @blocking
     @asyncio.coroutine
@@ -669,6 +681,7 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
     def _stream_reader_proto(self):
         reader = asyncio.StreamReader(loop=self.loop)
         proto = asyncio.StreamReaderProtocol(reader)
+        proto.aioopenssl_test_reader = reader
         return proto
 
     def _connect(self, *args, **kwargs):
@@ -679,7 +692,8 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
                 *args,
                 **kwargs
             )
-        reader = reader_proto._stream_reader
+        reader = reader_proto.aioopenssl_test_reader
+        del reader_proto.aioopenssl_test_reader
         writer = asyncio.StreamWriter(transport, reader_proto, reader,
                                       self.loop)
         return transport, reader, writer
