@@ -343,7 +343,6 @@ class TestSSLConnection(unittest.TestCase):
             # Need to forbid TLS v1.3, since TLSv1.3+ does not support
             # renegotiation
             self.server_ctx.options |= ssl.OP_NO_TLSv1_3
-
         self.server_ctx.load_cert_chain(str(KEYFILE))
         yield from self._replace_server()
 
@@ -774,10 +773,12 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
     @asyncio.coroutine
     def test_renegotiate(self):
         ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
-        if hasattr(OpenSSL.SSL, "OP_NO_TLSv1_3"):
-            # Need to forbid TLS v1.3, since TLSv1.3+ does not support
-            # renegotiation
-            ctx.set_options(OpenSSL.SSL.OP_NO_TLSv1_3)
+        # Need to forbid TLS v1.3, since TLSv1.3+ does not support
+        # renegotiation
+        ctx.set_options(
+            getattr(OpenSSL.SSL, "OP_NO_TLSv1_3",
+                    getattr(ssl, "OP_NO_TLSv1_3", 0))
+        )
         ctx.use_certificate_chain_file(str(KEYFILE))
         ctx.use_privatekey_file(str(KEYFILE))
         self._replace_thread(ctx)
