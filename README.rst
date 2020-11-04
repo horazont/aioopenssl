@@ -35,7 +35,7 @@ The transport has two main advantages compared to the original:
    regression tests while you’re at it.
 
    If you find security-critical bugs, please follow the procedure announced in
-   the `aioxmpp readme <https://github.com/horazont/aioxmpp>`_.`
+   the `aioxmpp readme <https://github.com/horazont/aioxmpp#security-issues>`_.
 
 Documentation
 -------------
