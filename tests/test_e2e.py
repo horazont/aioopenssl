@@ -33,8 +33,7 @@ class TestSSLConnection(unittest.TestCase):
     TRY_PORTS = list(range(10000, 10010))
 
     @blocking
-    @asyncio.coroutine
-    def setUp(self):
+    async def setUp(self):
         self.loop = asyncio.get_event_loop()
         self.server = None
         self.server_ctx = ssl.create_default_context(
@@ -42,25 +41,23 @@ class TestSSLConnection(unittest.TestCase):
         )
 
         self.server_ctx.load_cert_chain(str(KEYFILE))
-        yield from self._replace_server()
+        await self._replace_server()
 
         self.inbound_queue = asyncio.Queue()
 
-    @asyncio.coroutine
-    def _shutdown_server(self):
+    async def _shutdown_server(self):
         self.server.close()
         while not self.inbound_queue.empty():
-            reader, writer = yield from self.inbound_queue.get()
+            reader, writer = await self.inbound_queue.get()
             writer.close()
-        yield from self.server.wait_closed()
+        await self.server.wait_closed()
         self.server = None
 
-    @asyncio.coroutine
-    def _replace_server(self):
+    async def _replace_server(self):
         if self.server is not None:
-            yield from self._shutdown_server()
+            await self._shutdown_server()
 
-        self.server = yield from asyncio.start_server(
+        self.server = await asyncio.start_server(
             self._server_accept,
             host="127.0.0.1",
             port=PORT,
@@ -68,9 +65,8 @@ class TestSSLConnection(unittest.TestCase):
         )
 
     @blocking
-    @asyncio.coroutine
-    def tearDown(self):
-        yield from self._shutdown_server()
+    async def tearDown(self):
+        await self._shutdown_server()
 
     def _server_accept(self, reader, writer):
         self.inbound_queue.put_nowait(
@@ -98,9 +94,8 @@ class TestSSLConnection(unittest.TestCase):
         return transport, reader, writer
 
     @blocking
-    @asyncio.coroutine
-    def test_send_and_receive_data(self):
-        _, c_reader, c_writer = yield from self._connect(
+    async def test_send_and_receive_data(self):
+        _, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -110,14 +105,14 @@ class TestSSLConnection(unittest.TestCase):
             use_starttls=False,
         )
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
 
         c_writer.write(b"foobar")
         s_writer.write(b"fnord")
 
-        yield from asyncio.gather(s_writer.drain(), c_writer.drain())
+        await asyncio.gather(s_writer.drain(), c_writer.drain())
 
-        c_read, s_read = yield from asyncio.gather(
+        c_read, s_read = await asyncio.gather(
             c_reader.readexactly(5),
             s_reader.readexactly(6),
         )
@@ -133,9 +128,8 @@ class TestSSLConnection(unittest.TestCase):
         )
 
     @blocking
-    @asyncio.coroutine
-    def test_send_large_data(self):
-        _, c_reader, c_writer = yield from self._connect(
+    async def test_send_large_data(self):
+        _, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -145,16 +139,16 @@ class TestSSLConnection(unittest.TestCase):
             use_starttls=False,
         )
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
 
         data = bytearray(2**17)
 
         c_writer.write(data)
         s_writer.write(b"foobar")
 
-        yield from asyncio.gather(s_writer.drain(), c_writer.drain())
+        await asyncio.gather(s_writer.drain(), c_writer.drain())
 
-        c_read, s_read = yield from asyncio.gather(
+        c_read, s_read = await asyncio.gather(
             c_reader.readexactly(6),
             s_reader.readexactly(len(data)),
         )
@@ -170,9 +164,8 @@ class TestSSLConnection(unittest.TestCase):
         )
 
     @blocking
-    @asyncio.coroutine
-    def test_recv_large_data(self):
-        _, c_reader, c_writer = yield from self._connect(
+    async def test_recv_large_data(self):
+        _, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -182,16 +175,16 @@ class TestSSLConnection(unittest.TestCase):
             use_starttls=False,
         )
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
 
         data = bytearray(2**17)
 
         s_writer.write(data)
         c_writer.write(b"foobar")
 
-        yield from asyncio.gather(s_writer.drain(), c_writer.drain())
+        await asyncio.gather(s_writer.drain(), c_writer.drain())
 
-        c_read, s_read = yield from asyncio.gather(
+        c_read, s_read = await asyncio.gather(
             c_reader.readexactly(len(data)),
             s_reader.readexactly(6),
         )
@@ -207,9 +200,8 @@ class TestSSLConnection(unittest.TestCase):
         )
 
     @blocking
-    @asyncio.coroutine
-    def test_send_recv_large_data(self):
-        _, c_reader, c_writer = yield from self._connect(
+    async def test_send_recv_large_data(self):
+        _, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -219,7 +211,7 @@ class TestSSLConnection(unittest.TestCase):
             use_starttls=False,
         )
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
 
         data1 = bytearray(2**17)
         data2 = bytearray(2**17)
@@ -227,9 +219,9 @@ class TestSSLConnection(unittest.TestCase):
         s_writer.write(data1)
         c_writer.write(data2)
 
-        yield from asyncio.gather(s_writer.drain(), c_writer.drain())
+        await asyncio.gather(s_writer.drain(), c_writer.drain())
 
-        c_read, s_read = yield from asyncio.gather(
+        c_read, s_read = await asyncio.gather(
             c_reader.readexactly(len(data1)),
             s_reader.readexactly(len(data2)),
         )
@@ -245,9 +237,8 @@ class TestSSLConnection(unittest.TestCase):
         )
 
     @blocking
-    @asyncio.coroutine
-    def test_abort(self):
-        c_transport, c_reader, c_writer = yield from self._connect(
+    async def test_abort(self):
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -257,22 +248,21 @@ class TestSSLConnection(unittest.TestCase):
             use_starttls=False,
         )
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
 
         c_transport.abort()
 
         with self.assertRaises(ConnectionError):
-            yield from asyncio.gather(c_writer.drain())
+            await asyncio.gather(c_writer.drain())
 
     @blocking
-    @asyncio.coroutine
-    def test_local_addr(self):
+    async def test_local_addr(self):
         last_exc = None
         used_port = None
 
         for port in self.TRY_PORTS:
             try:
-                c_transport, c_reader, c_writer = yield from self._connect(
+                c_transport, c_reader, c_writer = await self._connect(
                     host="127.0.0.1",
                     port=PORT,
                     ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -290,16 +280,15 @@ class TestSSLConnection(unittest.TestCase):
         else:
             raise last_exc
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
         sock = s_writer.transport.get_extra_info("socket")
         peer_addr = sock.getpeername()
 
         self.assertEqual(peer_addr, ("127.0.0.1", used_port))
 
     @blocking
-    @asyncio.coroutine
-    def test_starttls(self):
-        c_transport, c_reader, c_writer = yield from self._connect(
+    async def test_starttls(self):
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -309,16 +298,16 @@ class TestSSLConnection(unittest.TestCase):
             use_starttls=True,
         )
 
-        yield from c_transport.starttls()
+        await c_transport.starttls()
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
 
         c_writer.write(b"foobar")
         s_writer.write(b"fnord")
 
-        yield from asyncio.gather(s_writer.drain(), c_writer.drain())
+        await asyncio.gather(s_writer.drain(), c_writer.drain())
 
-        c_read, s_read = yield from asyncio.gather(
+        c_read, s_read = await asyncio.gather(
             c_reader.readexactly(5),
             s_reader.readexactly(6),
         )
@@ -334,8 +323,7 @@ class TestSSLConnection(unittest.TestCase):
         )
 
     @blocking
-    @asyncio.coroutine
-    def test_renegotiation(self):
+    async def test_renegotiation(self):
         self.server_ctx = ssl.create_default_context(
             ssl.Purpose.CLIENT_AUTH
         )
@@ -345,9 +333,9 @@ class TestSSLConnection(unittest.TestCase):
             self.server_ctx.options |= ssl.OP_NO_TLSv1_3
 
         self.server_ctx.load_cert_chain(str(KEYFILE))
-        yield from self._replace_server()
+        await self._replace_server()
 
-        c_transport, c_reader, c_writer = yield from self._connect(
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -357,15 +345,15 @@ class TestSSLConnection(unittest.TestCase):
             use_starttls=False,
         )
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
         ssl_sock = c_transport.get_extra_info("ssl_object")
 
         c_writer.write(b"foobar")
         s_writer.write(b"fnord")
 
-        yield from asyncio.gather(s_writer.drain(), c_writer.drain())
+        await asyncio.gather(s_writer.drain(), c_writer.drain())
 
-        c_read, s_read = yield from asyncio.gather(
+        c_read, s_read = await asyncio.gather(
             c_reader.readexactly(5),
             s_reader.readexactly(6),
         )
@@ -383,16 +371,14 @@ class TestSSLConnection(unittest.TestCase):
         ssl_sock.renegotiate()
 
     @blocking
-    @asyncio.coroutine
-    def test_post_handshake_exception_is_propagated(self):
+    async def test_post_handshake_exception_is_propagated(self):
         class FooException(Exception):
             pass
 
-        @asyncio.coroutine
-        def post_handshake_callback(transport):
+        async def post_handshake_callback(transport):
             raise FooException()
 
-        c_transport, c_reader, c_writer = yield from self._connect(
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -404,20 +390,18 @@ class TestSSLConnection(unittest.TestCase):
         )
 
         with self.assertRaises(FooException):
-            yield from c_transport.starttls()
+            await c_transport.starttls()
 
     @blocking
-    @asyncio.coroutine
-    def test_no_data_is_sent_if_handshake_crashes(self):
+    async def test_no_data_is_sent_if_handshake_crashes(self):
         class FooException(Exception):
             pass
 
-        @asyncio.coroutine
-        def post_handshake_callback(transport):
-            yield from asyncio.sleep(0.5)
+        async def post_handshake_callback(transport):
+            await asyncio.sleep(0.5)
             raise FooException()
 
-        c_transport, c_reader, c_writer = yield from self._connect(
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -430,16 +414,16 @@ class TestSSLConnection(unittest.TestCase):
 
         starttls_task = asyncio.ensure_future(c_transport.starttls())
         # ensure that handshake is in progress...
-        yield from asyncio.sleep(0.2)
+        await asyncio.sleep(0.2)
         c_transport.write(b"foobar")
 
         with self.assertRaises(FooException):
-            yield from starttls_task
+            await starttls_task
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
 
         with self.assertRaises(Exception) as ctx:
-            yield from asyncio.wait_for(
+            await asyncio.wait_for(
                 s_reader.readexactly(6),
                 timeout=0.1,
             )
@@ -457,17 +441,15 @@ class TestSSLConnection(unittest.TestCase):
             raise exc
 
     @blocking
-    @asyncio.coroutine
-    def test_no_data_is_received_if_handshake_crashes(self):
+    async def test_no_data_is_received_if_handshake_crashes(self):
         class FooException(Exception):
             pass
 
-        @asyncio.coroutine
-        def post_handshake_callback(transport):
-            yield from asyncio.sleep(0.5)
+        async def post_handshake_callback(transport):
+            await asyncio.sleep(0.5)
             raise FooException()
 
-        c_transport, c_reader, c_writer = yield from self._connect(
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -479,24 +461,22 @@ class TestSSLConnection(unittest.TestCase):
         )
 
         starttls_task = asyncio.ensure_future(c_transport.starttls())
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
         self.assertFalse(starttls_task.done())
         s_writer.write(b"fnord")
 
         with self.assertRaises(FooException):
-            yield from c_reader.readexactly(5)
+            await c_reader.readexactly(5)
 
         with self.assertRaises(FooException):
-            yield from starttls_task
+            await starttls_task
 
     @blocking
-    @asyncio.coroutine
-    def test_data_is_sent_after_handshake(self):
-        @asyncio.coroutine
-        def post_handshake_callback(transport):
-            yield from asyncio.sleep(0.5)
+    async def test_data_is_sent_after_handshake(self):
+        async def post_handshake_callback(transport):
+            await asyncio.sleep(0.5)
 
-        c_transport, c_reader, c_writer = yield from self._connect(
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -509,14 +489,14 @@ class TestSSLConnection(unittest.TestCase):
 
         starttls_task = asyncio.ensure_future(c_transport.starttls())
         # ensure that handshake is in progress...
-        yield from asyncio.sleep(0.2)
+        await asyncio.sleep(0.2)
         c_transport.write(b"foobar")
 
-        yield from starttls_task
+        await starttls_task
 
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
 
-        s_recv = yield from asyncio.wait_for(
+        s_recv = await asyncio.wait_for(
             s_reader.readexactly(6),
             timeout=0.1,
         )
@@ -524,13 +504,11 @@ class TestSSLConnection(unittest.TestCase):
         self.assertEqual(s_recv, b"foobar")
 
     @blocking
-    @asyncio.coroutine
-    def test_no_data_is_received_after_handshake(self):
-        @asyncio.coroutine
-        def post_handshake_callback(transport):
-            yield from asyncio.sleep(0.5)
+    async def test_no_data_is_received_after_handshake(self):
+        async def post_handshake_callback(transport):
+            await asyncio.sleep(0.5)
 
-        c_transport, c_reader, c_writer = yield from self._connect(
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -542,37 +520,35 @@ class TestSSLConnection(unittest.TestCase):
         )
 
         starttls_task = asyncio.ensure_future(c_transport.starttls())
-        s_reader, s_writer = yield from self.inbound_queue.get()
+        s_reader, s_writer = await self.inbound_queue.get()
         self.assertFalse(starttls_task.done())
         s_writer.write(b"fnord")
 
         with self.assertRaises(asyncio.TimeoutError):
-            yield from asyncio.wait_for(
+            await asyncio.wait_for(
                 c_reader.readexactly(5),
                 timeout=0.1,
             )
 
-        yield from starttls_task
+        await starttls_task
 
-        c_recv = yield from c_reader.readexactly(5)
+        c_recv = await c_reader.readexactly(5)
 
         self.assertEqual(c_recv, b"fnord")
 
     @blocking
-    @asyncio.coroutine
-    def test_close_during_handshake(self):
+    async def test_close_during_handshake(self):
         cancelled = None
 
-        @asyncio.coroutine
-        def post_handshake_callback(transport):
+        async def post_handshake_callback(transport):
             nonlocal cancelled
             try:
-                yield from asyncio.sleep(0.5)
+                await asyncio.sleep(0.5)
                 cancelled = False
             except asyncio.CancelledError:
                 cancelled = True
 
-        c_transport, c_reader, c_writer = yield from self._connect(
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -585,11 +561,11 @@ class TestSSLConnection(unittest.TestCase):
 
         starttls_task = asyncio.ensure_future(c_transport.starttls())
         # ensure that handshake is in progress...
-        yield from asyncio.sleep(0.2)
+        await asyncio.sleep(0.2)
         c_transport.close()
 
         with self.assertRaises(ConnectionError):
-            yield from starttls_task
+            await starttls_task
 
         self.assertTrue(cancelled)
 
@@ -656,8 +632,7 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
     TRY_PORTS = list(range(10000, 10010))
 
     @blocking
-    @asyncio.coroutine
-    def setUp(self):
+    async def setUp(self):
         self.loop = asyncio.get_event_loop()
         self.thread = None
 
@@ -683,29 +658,25 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
         self.thread.start()
 
     @blocking
-    @asyncio.coroutine
-    def tearDown(self):
+    async def tearDown(self):
         self.thread.stopped = True
         self.thread.join()
 
-    @asyncio.coroutine
-    def _get_inbound(self):
-        ok, data = yield from self.inbound_queue.get()
+    async def _get_inbound(self):
+        ok, data = await self.inbound_queue.get()
         if not ok:
             raise data
         return data
 
-    @asyncio.coroutine
-    def recv_thread(self, sock, *argv):
-        return self.loop.run_in_executor(
+    async def recv_thread(self, sock, *argv):
+        return await self.loop.run_in_executor(
             None,
             sock.recv,
             *argv
         )
 
-    @asyncio.coroutine
-    def send_thread(self, sock, *argv):
-        return self.loop.run_in_executor(
+    async def send_thread(self, sock, *argv):
+        return await self.loop.run_in_executor(
             None,
             sock.send,
             *argv
@@ -732,9 +703,8 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
         return transport, reader, writer
 
     @blocking
-    @asyncio.coroutine
-    def test_connect_send_recv_close(self):
-        c_transport, c_reader, c_writer = yield from self._connect(
+    async def test_connect_send_recv_close(self):
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT+1,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -744,14 +714,14 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
             use_starttls=False,
         )
 
-        sock = yield from self._get_inbound()
+        sock = await self._get_inbound()
 
         c_writer.write(b"foobar")
-        yield from self.send_thread(sock, b"fnord")
+        await self.send_thread(sock, b"fnord")
 
-        yield from asyncio.gather(c_writer.drain())
+        await asyncio.gather(c_writer.drain())
 
-        c_read, s_read = yield from asyncio.gather(
+        c_read, s_read = await asyncio.gather(
             c_reader.readexactly(5),
             self.recv_thread(sock, 6)
         )
@@ -767,12 +737,11 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
         )
 
         c_transport.close()
-        yield from asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)
         sock.close()
 
     @blocking
-    @asyncio.coroutine
-    def test_renegotiate(self):
+    async def test_renegotiate(self):
         ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
         if hasattr(OpenSSL.SSL, "OP_NO_TLSv1_3"):
             # Need to forbid TLS v1.3, since TLSv1.3+ does not support
@@ -782,7 +751,7 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
         ctx.use_privatekey_file(str(KEYFILE))
         self._replace_thread(ctx)
 
-        c_transport, c_reader, c_writer = yield from self._connect(
+        c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT+1,
             ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
@@ -792,14 +761,14 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
             use_starttls=False,
         )
 
-        sock = yield from self._get_inbound()
+        sock = await self._get_inbound()
 
         c_writer.write(b"foobar")
-        yield from self.send_thread(sock, b"fnord")
+        await self.send_thread(sock, b"fnord")
 
-        yield from asyncio.gather(c_writer.drain())
+        await asyncio.gather(c_writer.drain())
 
-        c_read, s_read = yield from asyncio.gather(
+        c_read, s_read = await asyncio.gather(
             c_reader.readexactly(5),
             self.recv_thread(sock, 6)
         )
@@ -828,17 +797,17 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
 
         c_writer.write(b"baz")
 
-        yield from asyncio.gather(
+        await asyncio.gather(
             c_writer.drain(),
             self.loop.run_in_executor(None, sock.do_handshake)
         )
 
-        s_read, = yield from asyncio.gather(
+        s_read, = await asyncio.gather(
             self.recv_thread(sock, 6)
         )
 
         self.assertEqual(s_read, b"baz")
 
         c_transport.close()
-        yield from asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)
         sock.close()
