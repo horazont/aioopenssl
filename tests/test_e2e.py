@@ -335,12 +335,18 @@ class TestSSLConnection(unittest.TestCase):
         self.server_ctx.load_cert_chain(str(KEYFILE))
         await self._replace_server()
 
+        def factory(_):
+            ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
+            if hasattr(OpenSSL.SSL, "OP_NO_TLSv1_3"):
+                # Need to forbid TLS v1.3, since TLSv1.3+ does not support
+                # renegotiation
+                ctx.set_options(OpenSSL.SSL.OP_NO_TLSv1_3)
+            return ctx
+
         c_transport, c_reader, c_writer = await self._connect(
             host="127.0.0.1",
             port=PORT,
-            ssl_context_factory=lambda transport: OpenSSL.SSL.Context(
-                OpenSSL.SSL.SSLv23_METHOD
-            ),
+            ssl_context_factory=factory,
             server_hostname="localhost",
             use_starttls=False,
         )
