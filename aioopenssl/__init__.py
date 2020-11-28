@@ -1,4 +1,4 @@
-"""
+"""  # NOQA
 :mod:`aioopenssl` --- A transport for asyncio using :mod:`OpenSSL`
 ##################################################################
 
@@ -36,7 +36,7 @@ import typing
 
 from enum import Enum
 
-from .version import __version__, version_info, version
+from .version import __version__, version_info, version  # noqa:F401
 from .utils import SendWrap
 
 import OpenSSL.SSL
@@ -45,16 +45,16 @@ logger = logging.getLogger(__name__)
 
 
 class _State(Enum):
-    RAW_OPEN               = 0x0000
-    RAW_EOF_RECEIVED       = 0x0001
+    RAW_OPEN               = 0x0000  # noqa:E221
+    RAW_EOF_RECEIVED       = 0x0001  # noqa:E221
 
-    TLS_HANDSHAKING        = 0x0300
-    TLS_OPEN               = 0x0100
-    TLS_EOF_RECEIVED       = 0x0101
-    TLS_SHUTTING_DOWN      = 0x0102
-    TLS_SHUT_DOWN          = 0x0103
+    TLS_HANDSHAKING        = 0x0300  # noqa:E221
+    TLS_OPEN               = 0x0100  # noqa:E221
+    TLS_EOF_RECEIVED       = 0x0101  # noqa:E221
+    TLS_SHUTTING_DOWN      = 0x0102  # noqa:E221
+    TLS_SHUT_DOWN          = 0x0103  # noqa:E221
 
-    CLOSED                 = 0x0003
+    CLOSED                 = 0x0003  # noqa:E221
 
     @property
     def eof_received(self) -> bool:
@@ -456,7 +456,7 @@ class STARTTLSTransport(asyncio.Transport):
             # force_close will take care of removing rw handlers
             self._fatal_error(exc, "Fatal error on tls shutdown")
             return
-        except BaseException as exc:
+        except BaseException:
             self._remove_rw()
             raise
 
