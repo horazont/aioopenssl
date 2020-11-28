@@ -1,12 +1,14 @@
+import typing
+
 import OpenSSL.SSL
 
 
 class SendWrap:
-    def __init__(self, sock):
+    def __init__(self, sock: OpenSSL.SSL.Connection):
         self.__sock = sock
-        self.__cached_write = None
+        self.__cached_write = None  # type: typing.Optional[typing.Tuple[bytes, typing.Any]]  # noqa
 
-    def send(self, buf):
+    def send(self, buf: typing.Union[bytes, memoryview]) -> int:
         if self.__cached_write is not None:
             as_bytes, prev_buf = self.__cached_write
             if prev_buf is not buf:

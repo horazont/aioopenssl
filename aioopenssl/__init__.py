@@ -32,6 +32,7 @@ The transport implementation is documented below:
 import asyncio
 import logging
 import socket
+import typing
 
 from enum import Enum
 
@@ -56,23 +57,23 @@ class _State(Enum):
     CLOSED                 = 0x0003
 
     @property
-    def eof_received(self):
+    def eof_received(self) -> bool:
         return bool(self.value & 0x0001)
 
     @property
-    def tls_started(self):
+    def tls_started(self) -> bool:
         return bool(self.value & 0x0100)
 
     @property
-    def tls_handshaking(self):
+    def tls_handshaking(self) -> bool:
         return bool(self.value & 0x0200)
 
     @property
-    def is_writable(self):
+    def is_writable(self) -> bool:
         return not bool(self.value & 0x0002)
 
     @property
-    def is_open(self):
+    def is_open(self) -> bool:
         return (self.value & 0x3) == 0
 
 
@@ -81,6 +82,13 @@ if hasattr(asyncio, "ensure_future"):
 else:
     # compatibility with Python 3.7+
     ensure_future = getattr(asyncio, "async")
+
+
+SSLContextFactory = typing.Callable[[asyncio.Transport], OpenSSL.SSL.Context]
+PostHandshakeCallback = typing.Callable[
+    ["STARTTLSTransport"],
+    typing.Coroutine[typing.Any, typing.Any, None],
+]
 
 
 class STARTTLSTransport(asyncio.Transport):
@@ -147,12 +155,19 @@ class STARTTLSTransport(asyncio.Transport):
 
     MAX_SIZE = 256 * 1024
 
-    def __init__(self, loop, rawsock, protocol, ssl_context_factory,
-                 waiter=None,
-                 use_starttls=False,
-                 post_handshake_callback=None,
-                 peer_hostname=None,
-                 server_hostname=None):
+    def __init__(
+            self,
+            loop: asyncio.BaseEventLoop,
+            rawsock: socket.socket,
+            protocol: asyncio.Protocol,
+            ssl_context_factory: SSLContextFactory,
+            waiter: typing.Optional[asyncio.Future] = None,
+            use_starttls: bool = False,
+            post_handshake_callback: typing.Optional[
+                PostHandshakeCallback
+            ] = None,
+            peer_hostname: typing.Optional[str] = None,
+            server_hostname: typing.Optional[str] = None):
         if not use_starttls and not ssl_context_factory:
             raise ValueError("Cannot have STARTTLS disabled (i.e. immediate "
                              "TLS connection) and without SSL context.")
@@ -163,15 +178,14 @@ class STARTTLSTransport(asyncio.Transport):
         self._trace_logger = logger.getChild(
             "trace.fd={}".format(self._raw_fd)
         )
-        self._sock = rawsock
+        self._sock = rawsock  # type: typing.Union[socket.socket, OpenSSL.SSL.Connection]  # noqa
         self._send_wrap = SendWrap(self._sock)
         self._protocol = protocol
         self._loop = loop
         self._extra = {
             "socket": rawsock,
-        }
+        }  # type: typing.Dict[str, typing.Any]
         self._waiter = waiter
-        self._state = None
         self._conn_lost = 0
         self._buffer = bytearray()
         self._ssl_context_factory = ssl_context_factory
@@ -185,17 +199,17 @@ class STARTTLSTransport(asyncio.Transport):
 
         # this is a list set of tasks which will also be cancelled if the
         # _waiter is cancelled
-        self._chained_pending = set()
+        self._chained_pending = set()  # type: typing.Set[asyncio.Future]
 
         self._paused = False
         self._closing = False
 
-        self._tls_conn = None
+        self._tls_conn = None  # type: typing.Optional[OpenSSL.SSL.Connection]
         self._tls_read_wants_write = False
         self._tls_write_wants_read = False
         self._tls_post_handshake_callback = post_handshake_callback
 
-        self._state = None
+        self._state = None  # type: typing.Optional[_State]
         if not use_starttls:
             self._ssl_context = ssl_context_factory(self)
             self._extra.update(
@@ -205,7 +219,7 @@ class STARTTLSTransport(asyncio.Transport):
         else:
             self._initiate_raw()
 
-    def _waiter_done(self, fut):
+    def _waiter_done(self, fut: asyncio.Future) -> None:
         self._trace_logger.debug("_waiter future done (%r)", fut)
 
         for chained in self._chained_pending:
@@ -213,7 +227,10 @@ class STARTTLSTransport(asyncio.Transport):
             chained.cancel()
         self._chained_pending.clear()
 
-    def _invalid_transition(self, via=None, to=None):
+    def _invalid_transition(
+            self,
+            via: typing.Optional[str] = None,
+            to: typing.Optional[_State] = None) -> None:
         via_text = (" via {}".format(via)) if via is not None else ""
         to_text = (" to {}".format(to)) if to is not None else ""
         msg = "Invalid state transition (from {}{}{})".format(
@@ -224,7 +241,11 @@ class STARTTLSTransport(asyncio.Transport):
         logger.error(msg)
         raise RuntimeError(msg)
 
-    def _invalid_state(self, what, exc=RuntimeError):
+    def _invalid_state(
+            self,
+            what: str,
+            exc: typing.Type[Exception] = RuntimeError,
+            ) -> Exception:
         msg = "{what} (invalid in state {state}, closing={closing})".format(
             what=what,
             state=self._state,
@@ -233,7 +254,10 @@ class STARTTLSTransport(asyncio.Transport):
         # raising is optional :)
         return exc(msg)
 
-    def _fatal_error(self, exc, msg):
+    def _fatal_error(
+            self,
+            exc: BaseException,
+            msg: str) -> None:
         if not isinstance(exc, (BrokenPipeError, ConnectionResetError)):
             self._loop.call_exception_handler({
                 "message": msg,
@@ -244,13 +268,14 @@ class STARTTLSTransport(asyncio.Transport):
 
         self._force_close(exc)
 
-    def _force_close(self, exc):
+    def _force_close(
+            self,
+            exc: typing.Optional[BaseException],
+            ) -> None:
         self._trace_logger.debug("_force_close called")
         self._remove_rw()
         if self._state == _State.CLOSED:
-            # don’t raise here
             raise self._invalid_state("_force_close called")
-            return
 
         self._state = _State.CLOSED
 
@@ -258,17 +283,22 @@ class STARTTLSTransport(asyncio.Transport):
             self._buffer.clear()
 
         if self._waiter is not None and not self._waiter.done():
-            self._waiter.set_exception(ConnectionError("_force_close() called"))
+            self._waiter.set_exception(
+                exc or ConnectionError("_force_close() called"),
+            )
         self._loop.remove_reader(self._raw_fd)
         self._loop.remove_writer(self._raw_fd)
         self._loop.call_soon(self._call_connection_lost_and_clean_up, exc)
 
-    def _remove_rw(self):
+    def _remove_rw(self) -> None:
         self._trace_logger.debug("clearing readers/writers")
         self._loop.remove_reader(self._raw_fd)
         self._loop.remove_writer(self._raw_fd)
 
-    def _call_connection_lost_and_clean_up(self, exc):
+    def _call_connection_lost_and_clean_up(
+            self,
+            exc: Exception,
+            ) -> None:
         """
         Clean up all resources and call the protocols connection lost method.
         """
@@ -281,11 +311,10 @@ class STARTTLSTransport(asyncio.Transport):
             if self._tls_conn is not None:
                 self._tls_conn.set_app_data(None)
                 self._tls_conn = None
-            self._rawsock = None
-            self._protocol = None
-            self._loop = None
+            self._rawsock = None  # type:ignore
+            self._protocol = None  # type:ignore
 
-    def _initiate_raw(self):
+    def _initiate_raw(self) -> None:
         if self._state is not None:
             self._invalid_transition(via="_initiate_raw", to=_State.RAW_OPEN)
 
@@ -296,7 +325,7 @@ class STARTTLSTransport(asyncio.Transport):
             self._loop.call_soon(self._waiter.set_result, None)
             self._waiter = None
 
-    def _initiate_tls(self):
+    def _initiate_tls(self) -> None:
         self._trace_logger.debug("_initiate_tls called")
         if self._state is not None and self._state != _State.RAW_OPEN:
             self._invalid_transition(via="_initiate_tls",
@@ -322,7 +351,8 @@ class STARTTLSTransport(asyncio.Transport):
 
         self._tls_do_handshake()
 
-    def _tls_do_handshake(self):
+    def _tls_do_handshake(self) -> None:
+        assert self._tls_conn is not None
         self._trace_logger.debug("_tls_do_handshake called")
         if self._state != _State.TLS_HANDSHAKING:
             raise self._invalid_state("_tls_do_handshake called")
@@ -369,7 +399,10 @@ class STARTTLSTransport(asyncio.Transport):
         else:
             self._tls_post_handshake(None)
 
-    def _tls_post_handshake_done(self, task):
+    def _tls_post_handshake_done(
+            self,
+            task: asyncio.Future,
+            ) -> None:
         self._chained_pending.discard(task)
         try:
             task.result()
@@ -381,7 +414,10 @@ class STARTTLSTransport(asyncio.Transport):
         else:
             self._tls_post_handshake(None)
 
-    def _tls_post_handshake(self, exc):
+    def _tls_post_handshake(
+            self,
+            exc: typing.Optional[BaseException],
+            ) -> None:
         self._trace_logger.debug("_tls_post_handshake called")
         if exc is not None:
             if self._waiter is not None and not self._waiter.done():
@@ -400,11 +436,12 @@ class STARTTLSTransport(asyncio.Transport):
         if self._waiter is not None:
             self._loop.call_soon(self._waiter.set_result, None)
 
-    def _tls_do_shutdown(self):
+    def _tls_do_shutdown(self) -> None:
         self._trace_logger.debug("_tls_do_shutdown called")
         if self._state != _State.TLS_SHUTTING_DOWN:
             raise self._invalid_state("_tls_do_shutdown called")
 
+        assert isinstance(self._sock, OpenSSL.SSL.Connection)
         try:
             self._sock.shutdown()
         except OpenSSL.SSL.WantReadError:
@@ -428,20 +465,21 @@ class STARTTLSTransport(asyncio.Transport):
         # continue to raw shut down
         self._raw_shutdown()
 
-    def _tls_shutdown(self):
+    def _tls_shutdown(self) -> None:
         self._state = _State.TLS_SHUTTING_DOWN
         self._tls_do_shutdown()
 
-    def _raw_shutdown(self):
+    def _raw_shutdown(self) -> None:
         self._remove_rw()
         try:
             self._rawsock.shutdown(socket.SHUT_RDWR)
         except OSError:
-            # we cannot do anything anyways if this fails
+            # we cannot do anything anyway if this fails
             pass
         self._force_close(None)
 
-    def _read_ready(self):
+    def _read_ready(self) -> None:
+        assert self._state is not None
         if self._state.tls_started and self._tls_write_wants_read:
             self._tls_write_wants_read = False
             self._write_ready()
@@ -490,7 +528,8 @@ class STARTTLSTransport(asyncio.Transport):
                 finally:
                     self._eof_received(keep_open)
 
-    def _write_ready(self):
+    def _write_ready(self) -> None:
+        assert self._state is not None
         if self._tls_read_wants_write:
             self._tls_read_wants_write = False
             self._read_ready()
@@ -548,10 +587,12 @@ class STARTTLSTransport(asyncio.Transport):
                 else:
                     self._raw_shutdown()
 
-    def _eof_received(self, keep_open):
+    def _eof_received(self, keep_open: bool) -> None:
+        assert self._state is not None
         self._trace_logger.debug("_eof_received: removing reader")
         self._loop.remove_reader(self._raw_fd)
         if self._state.tls_started:
+            assert self._tls_conn is not None
             if self._tls_conn.get_shutdown() & OpenSSL.SSL.RECEIVED_SHUTDOWN:
                 # proper TLS shutdown going on
                 if keep_open:
@@ -560,11 +601,14 @@ class STARTTLSTransport(asyncio.Transport):
                     self._tls_shutdown()
             else:
                 if keep_open:
-                    self._trace_logger.warning("result of eof_received() "
-                                               "ignored as shut down is"
-                                               " improper")
-                self._fatal_error(ConnectionError("Underlying transport "
-                                                  "closed"))
+                    self._trace_logger.warning(
+                        "result of eof_received() ignored as shut down is"
+                        " improper",
+                    )
+                self._fatal_error(
+                    ConnectionError("Underlying transport closed"),
+                    "unexpected eof_received"
+                )
         else:
             if keep_open:
                 self._state = _State.RAW_EOF_RECEIVED
@@ -573,7 +617,7 @@ class STARTTLSTransport(asyncio.Transport):
 
     # public API
 
-    def abort(self):
+    def abort(self) -> None:
         """
         Immediately close the stream, without sending remaining buffers or
         performing a proper shutdown.
@@ -584,7 +628,7 @@ class STARTTLSTransport(asyncio.Transport):
 
         self._force_close(None)
 
-    def can_write_eof(self):
+    def can_write_eof(self) -> bool:
         """
         Return :data:`False`.
 
@@ -598,7 +642,7 @@ class STARTTLSTransport(asyncio.Transport):
         """
         return False
 
-    def close(self):
+    def close(self) -> None:
         """
         Close the stream. This performs a proper stream shutdown, except if the
         stream is currently performing a TLS handshake. In that case, calling
@@ -620,14 +664,18 @@ class STARTTLSTransport(asyncio.Transport):
         elif self._buffer:
             # there is data to be send left, first wait for it to transmit ...
             self._closing = True
-        elif self._state.tls_started:
+        elif self._state is not None and self._state.tls_started:
             # normal TLS state, nothing left to transmit, shut down
             self._tls_shutdown()
         else:
             # normal non-TLS state, nothing left to transmit, close
             self._raw_shutdown()
 
-    def get_extra_info(self, name, default=None):
+    def get_extra_info(
+            self,
+            name: str,
+            default: typing.Optional[typing.Any] = None,
+            ) -> typing.Any:
         """
         The following extra information is available:
 
@@ -645,9 +693,13 @@ class STARTTLSTransport(asyncio.Transport):
         """
         return self._extra.get(name, default)
 
-    @asyncio.coroutine
-    def starttls(self, ssl_context=None,
-                 post_handshake_callback=None):
+    async def starttls(
+            self,
+            ssl_context: typing.Optional[OpenSSL.SSL.Context] = None,
+            post_handshake_callback: typing.Optional[
+                PostHandshakeCallback
+            ] = None,
+            ) -> None:
         """
         Start a TLS stream on top of the socket. This is an invalid operation
         if the stream is not in RAW_OPEN state.
@@ -680,11 +732,11 @@ class STARTTLSTransport(asyncio.Transport):
         self._waiter.add_done_callback(self._waiter_done)
         self._initiate_tls()
         try:
-            yield from self._waiter
+            await self._waiter
         finally:
             self._waiter = None
 
-    def write(self, data):
+    def write(self, data: typing.Union[bytes, bytearray, memoryview]) -> None:
         """
         Write data to the transport. This is an invalid operation if the stream
         is not writable, that is, if it is closed. During TLS negotiation, the
@@ -694,7 +746,9 @@ class STARTTLSTransport(asyncio.Transport):
             raise TypeError('data argument must be byte-ish (%r)',
                             type(data))
 
-        if not self._state.is_writable or self._closing:
+        if (self._state is None or
+                not self._state.is_writable or
+                self._closing):
             raise self._invalid_state("write() called")
 
         if not data:
@@ -705,35 +759,35 @@ class STARTTLSTransport(asyncio.Transport):
 
         self._buffer.extend(data)
 
-    def write_eof(self):
+    def write_eof(self) -> None:
         """
         Writing the EOF has not been implemented, for the sake of simplicity.
         """
         raise NotImplementedError("Cannot write_eof() on STARTTLS transport")
 
-    def can_starttls(self):
+    def can_starttls(self) -> bool:
         """
         Return :data:`True`.
         """
         return True
 
-    def is_closing(self):
+    def is_closing(self) -> bool:
         return (self._state == _State.TLS_SHUTTING_DOWN or
                 self._state == _State.CLOSED)
 
 
-@asyncio.coroutine
-def create_starttls_connection(
-        loop,
-        protocol_factory,
-        host=None,
-        port=None,
+async def create_starttls_connection(
+        loop: asyncio.BaseEventLoop,
+        protocol_factory: typing.Callable[[], asyncio.Protocol],
+        host: typing.Optional[str] = None,
+        port: typing.Optional[int] = None,
         *,
-        sock=None,
-        ssl_context_factory=None,
-        use_starttls=False,
-        local_addr=None,
-        **kwargs):
+        sock: typing.Optional[socket.socket] = None,
+        ssl_context_factory: SSLContextFactory,
+        use_starttls: bool = False,
+        local_addr: typing.Any = None,
+        **kwargs  # type: typing.Any
+        ) -> typing.Tuple[asyncio.Transport, asyncio.Protocol]:
     """
     Create a connection which can later be upgraded to use TLS.
 
@@ -795,9 +849,10 @@ def create_starttls_connection(
     """
 
     if host is not None and port is not None:
-        host_addrs = yield from loop.getaddrinfo(
+        host_addrs = await loop.getaddrinfo(
             host, port,
-            type=socket.SOCK_STREAM)
+            type=socket.SOCK_STREAM,
+        )
 
         exceptions = []
 
@@ -808,7 +863,7 @@ def create_starttls_connection(
                 sock.setblocking(False)
                 if local_addr is not None:
                     sock.bind(local_addr)
-                yield from loop.sock_connect(sock, address)
+                await loop.sock_connect(sock, address)
             except OSError as exc:
                 if sock is not None:
                     sock.close()
@@ -824,26 +879,26 @@ def create_starttls_connection(
                 raise exceptions[0]
 
             try:
-                from aioxmpp.errors import MultiOSError
+                from aioxmpp.errors import MultiOSError  # type:ignore
             except ImportError:
                 MultiOSError = OSError
 
-            exc = MultiOSError(
+            raise MultiOSError(
                 "could not connect to [{}]:{}".format(host, port),
-                exceptions)
-            raise exc
+                exceptions,
+            )
     elif sock is None:
         raise ValueError("sock must not be None if host and/or port are None")
     else:
         sock.setblocking(False)
 
     protocol = protocol_factory()
-    waiter = asyncio.Future(loop=loop)
+    waiter = asyncio.Future(loop=loop)  # type: asyncio.Future[None]
     transport = STARTTLSTransport(loop, sock, protocol,
                                   ssl_context_factory=ssl_context_factory,
                                   waiter=waiter,
                                   use_starttls=use_starttls,
                                   **kwargs)
-    yield from waiter
+    await waiter
 
     return transport, protocol

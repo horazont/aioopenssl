@@ -83,9 +83,9 @@ class TestSSLConnection(unittest.TestCase):
         proto.aioopenssl_test_reader = reader
         return proto
 
-    def _connect(self, *args, **kwargs):
+    async def _connect(self, *args, **kwargs):
         transport, reader_proto = \
-            yield from aioopenssl.create_starttls_connection(
+            await aioopenssl.create_starttls_connection(
                 asyncio.get_event_loop(),
                 self._stream_reader_proto,
                 *args,
@@ -717,9 +717,9 @@ class TestSSLConnectionThreadServer(unittest.TestCase):
         proto.aioopenssl_test_reader = reader
         return proto
 
-    def _connect(self, *args, **kwargs):
+    async def _connect(self, *args, **kwargs):
         transport, reader_proto = \
-            yield from aioopenssl.create_starttls_connection(
+            await aioopenssl.create_starttls_connection(
                 asyncio.get_event_loop(),
                 self._stream_reader_proto,
                 *args,
