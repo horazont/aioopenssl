@@ -1,8 +1,8 @@
 OpenSSL Transport for asyncio
 #############################
 
-.. image:: https://travis-ci.org/horazont/aioopenssl.svg?branch=devel
-  :target: https://travis-ci.org/horazont/aioopenssl
+.. image:: https://github.com/horazont/aioopenssl/workflows/CI/badge.svg
+  :target: https://github.com/horazont/aioopenssl/actions?query=workflow%3ACI+branch%3Adevel
 
 .. image:: https://coveralls.io/repos/github/horazont/aioopenssl/badge.svg?branch=devel
   :target: https://coveralls.io/github/horazont/aioopenssl?branch=devel
