@@ -11,7 +11,7 @@ jobs:
   mypy:
     runs-on: ubuntu-latest
 
-    name: 'mypy Typecheck'
+    name: 'typecheck: mypy'
 
     steps:
       - uses: actions/checkout@v2
@@ -30,7 +30,7 @@ jobs:
   linting:
     runs-on: ubuntu-latest
 
-    name: 'flake8 Linting'
+    name: 'lint: flake8'
 
     steps:
       - uses: actions/checkout@v2
@@ -60,7 +60,7 @@ jobs:
         - '3.8'
         - '3.9'
 
-    name: 'Unit tests with Python ${{ matrix.python-version }}'
+    name: 'unit: py${{ matrix.python-version }}'
 
     steps:
       - uses: actions/checkout@v2
