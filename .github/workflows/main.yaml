@@ -76,27 +76,18 @@ jobs:
         run: |
           set -euo pipefail
           python -m nose --with-cover --cover-package aioopenssl tests
-      - name: Submit to Coveralls
-        run: |
-          set -euo pipefail
-          coveralls
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_FLAG_NAME: python-${{ matrix.python-version }}
-          COVERALLS_PARALLEL: true
+      - name: Coveralls
+        uses: AndreMiras/coveralls-python-action@develop
+        with:
+          parallel: true
+          flag-name: python-${{ matrix.python-version }}
 
   finish:
     needs: test
     runs-on: ubuntu-latest
     name: Finalize
     steps:
-    - uses: actions/setup-python@v2
-      with:
-        python-version: '3.7'
     - name: Finalize Coveralls interaction
-      run: |
-        set -euo pipefail
-        pip install coveralls
-        coveralls --finish
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: AndreMiras/coveralls-python-action@develop
+      with:
+        parallel-finished: true
