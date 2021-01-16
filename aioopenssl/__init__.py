@@ -153,7 +153,7 @@ class STARTTLSTransport(asyncio.Transport):
             loop: asyncio.BaseEventLoop,
             rawsock: socket.socket,
             protocol: asyncio.Protocol,
-            ssl_context_factory: SSLContextFactory,
+            ssl_context_factory: typing.Optional[SSLContextFactory] = None,
             waiter: typing.Optional[asyncio.Future] = None,
             use_starttls: bool = False,
             post_handshake_callback: typing.Optional[
@@ -204,6 +204,7 @@ class STARTTLSTransport(asyncio.Transport):
 
         self._state = None  # type: typing.Optional[_State]
         if not use_starttls:
+            assert ssl_context_factory is not None
             self._ssl_context = ssl_context_factory(self)
             self._extra.update(
                 sslcontext=self._ssl_context,
@@ -718,6 +719,7 @@ class STARTTLSTransport(asyncio.Transport):
                 sslcontext=ssl_context
             )
         else:
+            assert self._ssl_context_factory is not None
             self._ssl_context = self._ssl_context_factory(self)
 
         if post_handshake_callback is not None:
@@ -778,7 +780,7 @@ async def create_starttls_connection(
         port: typing.Optional[int] = None,
         *,
         sock: typing.Optional[socket.socket] = None,
-        ssl_context_factory: SSLContextFactory,
+        ssl_context_factory: typing.Optional[SSLContextFactory] = None,
         use_starttls: bool = False,
         local_addr: typing.Any = None,
         **kwargs  # type: typing.Any
