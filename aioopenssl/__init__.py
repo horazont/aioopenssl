@@ -89,8 +89,8 @@ class STARTTLSTransport(asyncio.Transport):
     Create a new :class:`asyncio.Transport` which supports TLS and the deferred
     starting of TLS using the :meth:`starttls` method.
 
-    `loop` must be a :class:`asyncio.BaseEventLoop` with support for
-    :meth:`BaseEventLoop.add_reader` as well as removal and the writer
+    `loop` must be a :class:`asyncio.AbstractEventLoop` with support for
+    :meth:`AbstractEventLoop.add_reader` as well as removal and the writer
     complements.
 
     `rawsock` must be a :class:`socket.socket` which will be used as the socket
@@ -150,7 +150,7 @@ class STARTTLSTransport(asyncio.Transport):
 
     def __init__(
             self,
-            loop: asyncio.BaseEventLoop,
+            loop: asyncio.AbstractEventLoop,
             rawsock: socket.socket,
             protocol: asyncio.Protocol,
             ssl_context_factory: typing.Optional[SSLContextFactory] = None,
@@ -774,7 +774,7 @@ class STARTTLSTransport(asyncio.Transport):
 
 
 async def create_starttls_connection(
-        loop: asyncio.BaseEventLoop,
+        loop: asyncio.AbstractEventLoop,
         protocol_factory: typing.Callable[[], asyncio.Protocol],
         host: typing.Optional[str] = None,
         port: typing.Optional[int] = None,
@@ -793,7 +793,7 @@ async def create_starttls_connection(
         The `local_addr` argument was added.
 
     :param loop: The event loop to use.
-    :type loop: :class:`asyncio.BaseEventLoop`
+    :type loop: :class:`asyncio.AbstractEventLoop`
     :param protocol_factory: Factory for the protocol for the connection
     :param host: The host name or address to connect to
     :type host: :class:`str` or :data:`None`
@@ -809,14 +809,14 @@ async def create_starttls_connection(
     :param local_addr: Address to bind to
 
     This is roughly a copy of the asyncio implementation of
-    :meth:`asyncio.BaseEventLoop.create_connection`. It returns a pair
+    :meth:`asyncio.AbstractEventLoop.create_connection`. It returns a pair
     ``(transport, protocol)``, where `transport` is a newly created
     :class:`STARTTLSTransport` instance. Further keyword arguments are
     forwarded to the constructor of :class:`STARTTLSTransport`.
 
-    `loop` must be a :class:`asyncio.BaseEventLoop`, with support for
-    :meth:`asyncio.BaseEventLoop.add_reader` and the corresponding writer and
-    removal functions for sockets. This is typically a selector type event
+    `loop` must be a :class:`asyncio.AbstractEventLoop`, with support for
+    :meth:`asyncio.AbstractEventLoop.add_reader` and the corresponding writer
+    and removal functions for sockets. This is typically a selector type event
     loop.
 
     `protocol_factory` must be a callable which (without any arguments) returns
